@@ -19,14 +19,6 @@ export default function Topbar({ activeTab, onMenuClick, onlineCount = 128 }) {
     <header className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-background sticky top-0 z-10">
       {/* Left */}
       <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={onMenuClick}
-        >
-          <Menu size={18} />
-        </Button>
 
         <div>
           <h1 className="text-base font-semibold text-foreground leading-tight">

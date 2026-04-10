@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { io } from "socket.io-client";
 import "./App.css";
 
-const SOCKET_URL = "https://hexachatback.vercel.app";
+const SOCKET_URL = "https://hexachatback.onrender.com";
 const ROOMS = ["general", "design", "dev", "random"];
 
 let socket;

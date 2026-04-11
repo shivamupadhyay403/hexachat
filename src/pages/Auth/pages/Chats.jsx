@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   Send, Search, Phone, Video,
   MoreHorizontal, ArrowLeft, Loader2,
+  X, Reply, Trash2, Check, CheckCheck,
 } from "lucide-react";
 import { Input }  from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,10 +13,26 @@ import {
   fetchMessages, appendMessage,
   upsertContact, clearUnread,
 } from "@/store/slices/chatSlice";
-import { getSocket }             from "@/socket/socketClient";
-import { useSocket }             from "@/hooks/useSocket";
-import useUser                   from "@/hooks/useUser";
+import { getSocket }          from "@/socket/socketClient";
+import { useSocket }          from "@/hooks/useSocket";
+import useUser                from "@/hooks/useUser";
 import { playReceiveSound, playSentSound } from "@/utils/chatSound";
+
+// ─── localStorage helpers ─────────────────────────────────────────────────────
+const CONTACTS_KEY = "chat_contacts";
+const saveContacts = (c) => { try { localStorage.setItem(CONTACTS_KEY, JSON.stringify(c)); } catch {} };
+const loadContacts = ()  => { try { return JSON.parse(localStorage.getItem(CONTACTS_KEY)) ?? []; } catch { return []; } };
+
+// ─── Tick icon ────────────────────────────────────────────────────────────────
+function Ticks({ status }) {
+  if (status === "pending")
+    return <Loader2 size={9} className="animate-spin text-violet-200" />;
+  if (status === "sent" || status === "delivered")
+    return <Check size={11} className="text-violet-200" />;
+  if (status === "seen")
+    return <CheckCheck size={11} className="text-blue-300" />;
+  return null;
+}
 
 // ─── Typing bubble ────────────────────────────────────────────────────────────
 function TypingBubble() {
@@ -51,22 +68,17 @@ function ContactItem({ contact, active, onClick }) {
           <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-background rounded-full" />
         )}
       </div>
-
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
           <p className="text-sm font-semibold text-foreground truncate">{contact.name}</p>
           {contact.lastTime && (
-            <span className="text-[10px] text-muted-foreground flex-shrink-0">
-              {contact.lastTime}
-            </span>
+            <span className="text-[10px] text-muted-foreground flex-shrink-0">{contact.lastTime}</span>
           )}
         </div>
         <p className={`text-xs truncate ${isTyping ? "text-emerald-500 italic" : "text-muted-foreground"}`}>
           {isTyping ? "typing..." : (contact.lastMsg || "Say hi!")}
         </p>
       </div>
-
-      {/* Unread badge */}
       {unread > 0 && (
         <span className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center">
           {unread > 99 ? "99+" : unread}
@@ -77,27 +89,177 @@ function ContactItem({ contact, active, onClick }) {
 }
 
 // ─── Message bubble ───────────────────────────────────────────────────────────
-function Message({ msg, myId }) {
+function Message({ msg, myId, onReply, onDeleteForMe, onDeleteForEveryone }) {
   const isMe = String(msg.senderId) === String(myId);
+
+  // Swipe-to-reply state (mobile / tablet)
+  const [swipeX,        setSwipeX]        = useState(0);
+  const [isSwiping,     setIsSwiping]     = useState(false);
+  const [menuOpen,      setMenuOpen]      = useState(false);
+  const touchStartX    = useRef(null);
+  const swipeTriggered = useRef(false);
+  const menuRef        = useRef(null);
+  const SWIPE_THRESHOLD = 60;
+
   const time = msg.createdAt
     ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : (msg.time ?? "");
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  // ── Touch / swipe handlers ────────────────────────────────────────────────
+  const onTouchStart = (e) => {
+    touchStartX.current    = e.touches[0].clientX;
+    swipeTriggered.current = false;
+    setIsSwiping(true);
+  };
+
+  const onTouchMove = (e) => {
+    if (touchStartX.current === null) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    if (dx > 0) {
+      setSwipeX(Math.min(dx, SWIPE_THRESHOLD + 10));
+      if (dx >= SWIPE_THRESHOLD && !swipeTriggered.current) {
+        swipeTriggered.current = true;
+        onReply(msg);
+      }
+    }
+  };
+
+  const onTouchEnd = () => {
+    setSwipeX(0);
+    setIsSwiping(false);
+    touchStartX.current = null;
+  };
+
+  // ── Deleted states ────────────────────────────────────────────────────────
+  if (msg.deletedForEveryone) {
+    return (
+      <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+        <div className="px-3.5 py-2 rounded-2xl bg-muted/50 text-muted-foreground text-xs italic border border-dashed border-border">
+          🗑️ This message was deleted
+        </div>
+      </div>
+    );
+  }
+  if (msg.deletedForMe) return null;
+
   return (
-    <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-      <div className={`max-w-[78%] sm:max-w-[65%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
-        isMe
-          ? "bg-violet-600 text-white rounded-br-sm"
-          : "bg-muted text-foreground rounded-bl-sm"
+    <div
+      className={`flex ${isMe ? "justify-end" : "justify-start"} group relative`}
+      style={{
+        transform:  `translateX(${swipeX}px)`,
+        transition: isSwiping ? "none" : "transform 0.25s ease",
+      }}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      {/* Swipe reply arrow (fades in as you swipe) */}
+      {swipeX > 8 && (
+        <div
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-7 text-violet-400 pointer-events-none"
+          style={{ opacity: Math.min(swipeX / SWIPE_THRESHOLD, 1) }}
+        >
+          <Reply size={16} />
+        </div>
+      )}
+
+      {/* ── Bubble ── */}
+      <div className={`max-w-[78%] sm:max-w-[65%] rounded-2xl text-sm leading-relaxed overflow-hidden ${
+        isMe ? "bg-violet-600 text-white rounded-br-sm" : "bg-muted text-foreground rounded-bl-sm"
       } ${msg.pending ? "opacity-60" : ""}`}>
-        <p>{msg.text}</p>
-        <p className={`text-[10px] mt-1 flex items-center gap-1 ${
+
+        {/* Reply preview strip */}
+        {msg.replyTo && (
+          <div className={`px-3 pt-2 pb-1 border-l-2 mx-3 mt-2 mb-1 text-xs opacity-70 ${
+            isMe ? "border-violet-200 text-violet-100" : "border-violet-500 text-muted-foreground"
+          }`}>
+            <p className="font-semibold truncate">{msg.replyTo.senderName}</p>
+            <p className="truncate">{msg.replyTo.text ?? "📎 Media"}</p>
+          </div>
+        )}
+
+        {/* Text */}
+        {msg.text && <p className="px-3.5 py-2">{msg.text}</p>}
+
+        {/* Time + ticks */}
+        <p className={`text-[10px] px-3.5 pb-2 flex items-center gap-1 ${
           isMe ? "text-violet-200 justify-end" : "text-muted-foreground"
         }`}>
           {time}
-          {isMe && msg.pending && <Loader2 size={9} className="animate-spin" />}
+          {isMe && <Ticks status={msg.status ?? (msg.pending ? "pending" : "sent")} />}
         </p>
       </div>
+
+      {/* ── Three-dot menu (desktop, appears on hover) ── */}
+      <div
+        ref={menuRef}
+        className={`hidden md:flex items-center self-center flex-shrink-0 ${
+          isMe ? "order-first mr-1.5" : "order-last ml-1.5"
+        }`}
+      >
+        <div className="relative">
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            className="p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent text-muted-foreground"
+          >
+            <MoreHorizontal size={15} />
+          </button>
+
+          {menuOpen && (
+            <div className={`absolute bottom-8 z-50 bg-popover border border-border rounded-xl shadow-lg py-1 w-48 text-sm ${
+              isMe ? "right-0" : "left-0"
+            }`}>
+              <button
+                onClick={() => { onReply(msg); setMenuOpen(false); }}
+                className="w-full px-3 py-2 text-left hover:bg-accent flex items-center gap-2 text-foreground"
+              >
+                <Reply size={13} /> Reply
+              </button>
+              <button
+                onClick={() => { onDeleteForMe(msg); setMenuOpen(false); }}
+                className="w-full px-3 py-2 text-left hover:bg-accent flex items-center gap-2 text-foreground"
+              >
+                <Trash2 size={13} /> Delete for me
+              </button>
+              {isMe && (
+                <button
+                  onClick={() => { onDeleteForEveryone(msg); setMenuOpen(false); }}
+                  className="w-full px-3 py-2 text-left hover:bg-accent flex items-center gap-2 text-destructive"
+                >
+                  <Trash2 size={13} /> Delete for everyone
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Reply bar (above input) ──────────────────────────────────────────────────
+function ReplyBar({ replyTo, onCancel }) {
+  if (!replyTo) return null;
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 bg-accent border-t border-border">
+      <Reply size={13} className="text-violet-500 flex-shrink-0" />
+      <div className="flex-1 border-l-2 border-violet-500 pl-2 min-w-0">
+        <p className="text-[10px] font-semibold text-violet-600">{replyTo.senderName}</p>
+        <p className="text-xs text-muted-foreground truncate">{replyTo.text ?? "📎 Media"}</p>
+      </div>
+      <button onClick={onCancel} className="p-1 text-muted-foreground hover:text-foreground flex-shrink-0">
+        <X size={14} />
+      </button>
     </div>
   );
 }
@@ -106,70 +268,104 @@ function Message({ msg, myId }) {
 export default function Chats() {
   const location  = useLocation();
   const dispatch  = useDispatch();
-  const { getUserId } = useUser();
+  const { getUserId, getUserFullName } = useUser();
 
-  const myId = String(getUserId());
+  const myId   = String(getUserId());
+  const myName = getUserFullName();
 
   useSocket(myId);
 
-  // Request notification permission once on mount
   useEffect(() => {
-    if (Notification.permission === "default") {
-      Notification.requestPermission();
-    }
+    if (Notification.permission === "default") Notification.requestPermission();
   }, []);
 
   const onlineUsers   = useSelector((s) => s.onlineUsers);
   const conversations = useSelector((s) => s.chat.conversations);
   const loadingFor    = useSelector((s) => s.chat.loadingFor);
   const typingUsers   = useSelector((s) => s.chat.typingUsers);
-  const reduxContacts = useSelector((s) => s.chat.contacts); // ← from Redux now
+  const reduxContacts = useSelector((s) => s.chat.contacts);
 
-  const [activeContact,  setActiveContact]  = useState(null);
-  const [input,  setInput]  = useState("");
-  const [query,  setQuery]  = useState("");
+  const [activeContact, setActiveContact] = useState(null);
+  const [input,         setInput]         = useState("");
+  const [query,         setQuery]         = useState("");
+  const [replyTo,       setReplyTo]       = useState(null);
   const bottomRef   = useRef(null);
   const typingTimer = useRef(null);
 
   const messages        = activeContact ? (conversations[activeContact.id] ?? []) : [];
   const contactIsTyping = activeContact ? !!typingUsers[activeContact.id] : false;
 
-  // ── Play sound for incoming messages ──────────────────────────────────────
+  // ── Persist / load contacts ───────────────────────────────────────────────
+  useEffect(() => { if (reduxContacts.length > 0) saveContacts(reduxContacts); }, [reduxContacts]);
+  useEffect(() => {
+    loadContacts().forEach((c) => dispatch(upsertContact(c)));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Socket listeners ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onConfirmed = ({ tempId, id, createdAt }) =>
+      dispatch({ type: "chat/confirmMessage", payload: { tempId, id, createdAt, status: "sent" } });
+
+    const onSeen = ({ by, messageIds }) =>
+      dispatch({ type: "chat/markSeen", payload: { by, messageIds } });
+
+    const onDeletedForEveryone = ({ messageId }) =>
+      dispatch({ type: "chat/deleteForEveryone", payload: { messageId } });
+
+    socket.on("message_confirmed",            onConfirmed);
+    socket.on("messages_seen",                onSeen);
+    socket.on("message_deleted_for_everyone", onDeletedForEveryone);
+
+    return () => {
+      socket.off("message_confirmed",            onConfirmed);
+      socket.off("messages_seen",                onSeen);
+      socket.off("message_deleted_for_everyone", onDeletedForEveryone);
+    };
+  }, [dispatch]);
+
+  // ── Emit "seen" for unread incoming messages ──────────────────────────────
+  useEffect(() => {
+    if (!activeContact || messages.length === 0) return;
+    const socket = getSocket();
+    if (!socket?.connected) return;
+    const unseenIds = messages
+      .filter((m) => String(m.senderId) !== myId && m.status !== "seen" && !m.pending)
+      .map((m) => m.id);
+    if (unseenIds.length > 0)
+      socket.emit("messages_seen", { senderId: activeContact.id, messageIds: unseenIds });
+  }, [messages, activeContact, myId]);
+
+  // ── Sound ─────────────────────────────────────────────────────────────────
   const prevMsgCount = useRef(0);
   useEffect(() => {
     if (!activeContact) return;
     const count = messages.length;
     if (count > prevMsgCount.current) {
       const latest = messages[count - 1];
-      if (latest && String(latest.senderId) !== myId && !latest.pending) {
-        playReceiveSound();
-      }
+      if (latest && String(latest.senderId) !== myId && !latest.pending) playReceiveSound();
     }
     prevMsgCount.current = count;
   }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Open a contact + fetch history ────────────────────────────────────────
+  // ── Open contact ──────────────────────────────────────────────────────────
   const openContact = useCallback((contact) => {
     const c = { ...contact, id: String(contact.id) };
     setActiveContact(c);
-
-    // Sync into Redux contacts list (so it persists if navigated away)
     dispatch(upsertContact({ id: c.id, name: c.name, username: c.username ?? "" }));
-
-    // Clear unread badge
     dispatch(clearUnread(c.id));
-
     dispatch(fetchMessages(c.id));
     prevMsgCount.current = 0;
+    setReplyTo(null);
   }, [dispatch]);
 
-  // ── Handle navigation from FindPeople ─────────────────────────────────────
   useEffect(() => {
     const initContact = location.state?.initContact;
     if (initContact) openContact(initContact);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Auto-select first contact on desktop ──────────────────────────────────
   useEffect(() => {
     const mql = window.matchMedia("(min-width: 768px)");
     const select = () => {
@@ -186,7 +382,7 @@ export default function Chats() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, contactIsTyping]);
 
-  // ── Typing helpers ────────────────────────────────────────────────────────
+  // ── Typing ────────────────────────────────────────────────────────────────
   const emitTyping = (isTyping) => {
     const socket = getSocket();
     if (!socket?.connected || !activeContact) return;
@@ -201,13 +397,10 @@ export default function Chats() {
   };
 
   useEffect(() => {
-    return () => {
-      clearTimeout(typingTimer.current);
-      emitTyping(false);
-    };
+    return () => { clearTimeout(typingTimer.current); emitTyping(false); };
   }, [activeContact?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Send message ──────────────────────────────────────────────────────────
+  // ── Send ──────────────────────────────────────────────────────────────────
   const sendMessage = () => {
     if (!input.trim() || !activeContact) return;
     const socket = getSocket();
@@ -219,25 +412,66 @@ export default function Chats() {
     const tempId = `temp-${Date.now()}`;
     const text   = input.trim();
 
+    const replyPayload = replyTo
+      ? { id: replyTo.id, text: replyTo.text, senderName: replyTo.senderName }
+      : null;
+
     dispatch(appendMessage({
       id: tempId, tempId, text,
       senderId: myId, recipientId: activeContact.id,
-      myId, pending: true,
+      myId, pending: true, status: "pending",
+      replyTo: replyPayload,
       createdAt: new Date().toISOString(),
     }));
 
-    // Update contact preview in sidebar
     dispatch(upsertContact({
-      id:       activeContact.id,
-      name:     activeContact.name,
+      id: activeContact.id, name: activeContact.name,
       username: activeContact.username ?? "",
       lastMsg:  text,
       lastTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     }));
 
-    socket.emit("private_message", { recipientId: activeContact.id, tempId, text });
+    socket.emit("private_message", {
+      recipientId: activeContact.id,
+      tempId, text,
+      replyTo: replyPayload,
+    });
+
     playSentSound();
     setInput("");
+    setReplyTo(null);
+  };
+
+  // ── Delete for me ─────────────────────────────────────────────────────────
+  const handleDeleteForMe = (msg) => {
+    dispatch({
+      type: "chat/deleteForMe",
+      payload: { messageId: msg.id ?? msg.tempId, contactId: activeContact.id },
+    });
+  };
+
+  // ── Delete for everyone ───────────────────────────────────────────────────
+  const handleDeleteForEveryone = (msg) => {
+    const socket = getSocket();
+    if (socket?.connected) {
+      socket.emit("delete_message_for_everyone", {
+        messageId:   msg.id ?? msg.tempId,
+        recipientId: activeContact.id,
+      });
+    }
+    dispatch({
+      type: "chat/deleteForEveryone",
+      payload: { messageId: msg.id ?? msg.tempId },
+    });
+  };
+
+  // ── Reply ─────────────────────────────────────────────────────────────────
+  const handleReply = (msg) => {
+    setReplyTo({
+      id:         msg.id ?? msg.tempId,
+      text:       msg.text,
+      senderName: String(msg.senderId) === myId ? myName : activeContact.name,
+    });
   };
 
   // ── Search filter ─────────────────────────────────────────────────────────
@@ -253,7 +487,7 @@ export default function Chats() {
   return (
     <div className="flex h-full overflow-hidden gap-3">
 
-      {/* ── Contact list ── */}
+      {/* Contact list */}
       <div className={`flex-col gap-2 w-full md:w-64 md:flex-shrink-0 ${
         activeContact ? "hidden md:flex" : "flex"
       }`}>
@@ -286,7 +520,7 @@ export default function Chats() {
         </div>
       </div>
 
-      {/* ── Chat window ── */}
+      {/* Chat window */}
       <div className={`flex-1 flex-col border border-border rounded-2xl overflow-hidden bg-background min-w-0 ${
         activeContact ? "flex" : "hidden md:flex"
       }`}>
@@ -300,18 +534,14 @@ export default function Chats() {
               >
                 <ArrowLeft size={17} />
               </button>
-
               <div className="relative flex-shrink-0">
                 <Avatar name={activeContact.name} size="sm" />
                 {isOnline && (
                   <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-background rounded-full" />
                 )}
               </div>
-
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">
-                  {activeContact.name}
-                </p>
+                <p className="text-sm font-semibold text-foreground truncate">{activeContact.name}</p>
                 {contactIsTyping ? (
                   <p className="text-xs text-emerald-500 italic">typing...</p>
                 ) : (
@@ -320,7 +550,6 @@ export default function Chats() {
                   </p>
                 )}
               </div>
-
               <div className="flex items-center gap-0.5">
                 <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hidden sm:inline-flex">
                   <Phone size={15} />
@@ -334,8 +563,8 @@ export default function Chats() {
               </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {/* Messages area — overflow-x-hidden stops swipe from causing scroll */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3">
               {loadingFor === activeContact.id ? (
                 <div className="flex justify-center items-center h-full">
                   <Loader2 size={20} className="animate-spin text-muted-foreground" />
@@ -348,7 +577,14 @@ export default function Chats() {
               ) : (
                 <>
                   {messages.map((msg) => (
-                    <Message key={msg.id ?? msg.tempId} msg={msg} myId={myId} />
+                    <Message
+                      key={msg.id ?? msg.tempId}
+                      msg={msg}
+                      myId={myId}
+                      onReply={handleReply}
+                      onDeleteForMe={handleDeleteForMe}
+                      onDeleteForEveryone={handleDeleteForEveryone}
+                    />
                   ))}
                   {contactIsTyping && <TypingBubble />}
                 </>
@@ -356,13 +592,16 @@ export default function Chats() {
               <div ref={bottomRef} />
             </div>
 
-            {/* Input bar */}
+            {/* Reply bar */}
+            <ReplyBar replyTo={replyTo} onCancel={() => setReplyTo(null)} />
+
+            {/* Input bar — no file upload */}
             <div className="flex items-center gap-2 px-3 py-3 border-t border-border">
               <Input
                 placeholder="Type a message..."
                 value={input}
                 onChange={handleInputChange}
-                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
                 className="flex-1 rounded-xl text-sm h-9"
               />
               <Button

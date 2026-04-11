@@ -13,7 +13,7 @@ import Spinner from "@/assets/Spinner";
 
 function PeopleCard({ user }) {
   const [followed, setFollowed] = useState(false);
-
+  console.log(user);
   return (
     <Card className="rounded-2xl border border-border shadow-none hover:shadow-sm transition-shadow">
       <CardContent className="p-4 flex flex-col items-center gap-3">
@@ -39,9 +39,15 @@ function PeopleCard({ user }) {
         {/* Stats */}
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <span className="font-semibold text-foreground">
-            {user.followers.toLocaleString()}
+            {user.followersCount.toLocaleString()}
           </span>
           followers
+        </div>
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">
+            {user.followingCount.toLocaleString()}
+          </span>
+          following
         </div>
 
         {/* Gallery placeholders */}

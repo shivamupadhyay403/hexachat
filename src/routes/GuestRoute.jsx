@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/Authcontext";
-import { Spinner } from "@/components/ui/spinner";
+import Spinner from "../assets/Spinner";
 
 export default function GuestRoute() {
   const { isAuthenticated, loading } = useAuth();

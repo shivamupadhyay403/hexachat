@@ -4,27 +4,30 @@
 // Post tab is a plain icon — no raised pill treatment
 
 import { Home, ImagePlus, MessageCircle, Users, User } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const NAV_ITEMS = [
-  { id: "feed",    icon: Home,          label: "Feed" },
-  { id: "post",    icon: ImagePlus,     label: "Post" },
-  { id: "chats",   icon: MessageCircle, label: "Chats" },
-  { id: "people",  icon: Users,         label: "People" },
-  { id: "profile", icon: User,          label: "Profile" },
+  { label: "Feed", icon: Home, path: "/dashboard/feed" },
+  { label: "Create Post", icon: ImagePlus, path: "/dashboard/post" },
+  { label: "Chats", icon: MessageCircle, path: "/dashboard/chats" },
+  { label: "Find People", icon: Users, path: "/dashboard/people" },
+  { label: "Profile", icon: User, path: "/dashboard/profile" },
 ];
 
-export default function BottomNav({ activeTab, onNavigate, unreadChats = 2 }) {
+export default function BottomNav() {
+  const navigate = useNavigate();
+  const location=useLocation()
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border">
       <div className="flex items-stretch justify-around px-1 pt-1 pb-2">
-        {NAV_ITEMS.map(({ id, icon: Icon, label }) => {
-          const isActive  = activeTab === id;
+        {NAV_ITEMS.map(({ id, icon: Icon, label, path }) => {
+          const isActive = location.pathname === path;
           const hasUnread = id === "chats" && unreadChats > 0;
 
           return (
             <button
               key={id}
-              onClick={() => onNavigate(id)}
+              onClick={() => navigate(path)}
               className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 relative group"
             >
               {/* Icon + badge */}

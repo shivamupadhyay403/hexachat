@@ -1,25 +1,24 @@
 // components/layout/Topbar.jsx
 // App topbar — page title, online count, search, notifications, hamburger
 
-import { Menu, Bell, Search } from "lucide-react";
+import { Bell, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const PAGE_META = {
-  feed:    { title: "Feed",        sub: "What's happening" },
-  post:    { title: "Create Post", sub: "Share something" },
-  chats:   { title: "Chats",       sub: "Your conversations" },
-  people:  { title: "Find People", sub: "Discover connections" },
-  profile: { title: "Profile",     sub: "Your public identity" },
+  feed: { title: "Feed", sub: "What's happening" },
+  post: { title: "Create Post", sub: "Share something" },
+  chats: { title: "Chats", sub: "Your conversations" },
+  people: { title: "Find People", sub: "Discover connections" },
+  profile: { title: "Profile", sub: "Your public identity" },
 };
 
-export default function Topbar({ activeTab, onMenuClick, onlineCount = 128 }) {
+export default function Topbar({ activeTab, onlineCount = 128 }) {
   const meta = PAGE_META[activeTab] || { title: activeTab, sub: "" };
 
   return (
     <header className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-background sticky top-0 z-10">
       {/* Left */}
       <div className="flex items-center gap-3">
-
         <div>
           <h1 className="text-base font-semibold text-foreground leading-tight">
             {meta.title}
@@ -38,7 +37,11 @@ export default function Topbar({ activeTab, onMenuClick, onlineCount = 128 }) {
           {onlineCount} online
         </div>
 
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground"
+        >
           <Search size={17} />
         </Button>
 

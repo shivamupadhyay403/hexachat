@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import useRedirection from "@/hooks/useRedirection";
 import { useAuth } from "../../context/Authcontext";
-import api from "@/assets/api"
+import api from "@/assets/api";
 import { LOGIN } from "@/store/api";
 
 export const loginSchema = z.object({
@@ -182,9 +182,9 @@ export default function LoginForm() {
         <CardHeader className="text-center">
           <HexLogo />
           <CardTitle className="text-2xl font-bold tracking-tight">
-            HexaChat
+            Welcome back to HexaChat
           </CardTitle>
-          <CardDescription>Login to your account</CardDescription>
+          <CardDescription>Log in to reconnect with your friends</CardDescription>
         </CardHeader>
 
         <CardContent>
@@ -259,13 +259,13 @@ export default function LoginForm() {
             {loading ? "Signing in…" : "Login"}
           </Button>
           <div className="flex items-center justify-center gap-1 text-sm">
-            <span>Not Yet Registered?</span>
+            <span>Not Yet on HexaChat?</span>
             <Button
               variant="link"
               className="p-0 h-auto"
               onClick={handleRedirectRegister}
             >
-              Sign Up
+              Create Account
             </Button>
           </div>
         </CardFooter>

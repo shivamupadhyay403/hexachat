@@ -107,8 +107,12 @@ export default function RegisterForm() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <HexLogo />
-          <CardTitle className="text-2xl font-bold">HexaChat</CardTitle>
-          <CardDescription>Register to your account</CardDescription>
+          <CardTitle className="text-2xl font-bold">
+            Welcome to HexaChat
+          </CardTitle>
+          <CardDescription>
+            Sign up to connect, chat, and share moments with your friends.
+          </CardDescription>
         </CardHeader>
 
         <CardContent>
@@ -264,20 +268,20 @@ export default function RegisterForm() {
               )}
 
               <Button type="submit" disabled={loading}>
-                {loading ? "Creating account..." : "Register"}
+                {loading ? "Creating account..." : "Create Account"}
               </Button>
             </div>
           </form>
         </CardContent>
 
         <CardFooter className="flex justify-center text-sm">
-          <span>Already Registered?</span>
+          <span>Already part of HexaChat?</span>
           <Button
             variant="link"
             className="ml-1 p-0"
             onClick={handleRedirectLogin}
           >
-            Sign In
+            Login Here
           </Button>
         </CardFooter>
       </Card>

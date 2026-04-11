@@ -11,7 +11,7 @@ import Avatar from "../ui/Avatar";
 import useUser from "@/hooks/useUser";
 import { LogOut } from "lucide-react";
 import { useAuth } from "@/context/Authcontext";
-const GENDER_OPTIONS = ["Male", "Female", "Non-binary", "Prefer not to say"];
+const GENDER_OPTIONS = ["Male", "Female", "Others"];
 
 const STATS = [
   { label: "Posts", value: 48 },
@@ -30,7 +30,6 @@ export default function Profile() {
     bio: "Building things on the internet. Coffee addict ☕",
     gender: getUserGender(),
     location: "Varanasi, India",
-    website: "",
   });
   const [saved, setSaved] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -182,19 +181,6 @@ export default function Profile() {
               />
             </div>
           </div>
-
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground font-medium">
-              Website
-            </label>
-            <Input
-              value={form.website}
-              onChange={update("website")}
-              placeholder="https://yoursite.com"
-              className="rounded-xl text-sm h-9"
-            />
-          </div>
-
           <Button
             onClick={handleSave}
             className={`w-full rounded-xl transition-all ${

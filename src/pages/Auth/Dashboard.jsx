@@ -5,32 +5,33 @@
 
 import { useState } from "react";
 
-import Sidebar   from "./layout/Sidebar";
-import Topbar    from "./layout/Topbar";
+import Sidebar from "./layout/Sidebar";
+import Topbar from "./layout/Topbar";
 import BottomNav from "./layout/BottomNav";
 
-import Feed       from "./pages/Feed";
-import Post       from "./pages/Post";
-import Chats      from "./pages/Chats";
+import Feed from "./pages/Feed";
+import Post from "./pages/Post";
+import Chats from "./pages/Chats";
 import FindPeople from "./pages/FindPeople";
-import Profile    from "./pages/Profile";
-
+import Profile from "./pages/Profile";
+import useUser from "@/hooks/useUser";
 const PAGE_COMPONENTS = {
-  feed:    Feed,
-  post:    Post,
-  chats:   Chats,
-  people:  FindPeople,
+  feed: Feed,
+  post: Post,
+  chats: Chats,
+  people: FindPeople,
   profile: Profile,
 };
 
-const CURRENT_USER = {
-  name: "Arjun Kumar",
-  handle: "@arjunk",
-  avatarSrc: null,
-};
-
 export default function Dashboard() {
-  const [activeTab, setActiveTab]     = useState("feed");
+  const { getUserFullName, getUserEmail } = useUser();
+  const CURRENT_USER = {
+    name: getUserFullName(),
+    handle: getUserEmail(),
+    avatarSrc: null,
+  };
+
+  const [activeTab, setActiveTab] = useState("feed");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const ActivePage = PAGE_COMPONENTS[activeTab] || Feed;
@@ -38,7 +39,6 @@ export default function Dashboard() {
   return (
     // overflow-hidden prevents the fixed sidebar from causing scroll on desktop
     <div className="flex h-screen bg-background overflow-hidden">
-
       {/*
         Single Sidebar instance.
         - On lg+: `lg:static lg:translate-x-0` keeps it in flex flow

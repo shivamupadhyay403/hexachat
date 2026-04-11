@@ -4,7 +4,6 @@
 import { useState, useRef } from "react";
 import { ImagePlus, X, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import Avatar from "../ui/Avatar";

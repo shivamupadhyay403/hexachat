@@ -1,37 +1,36 @@
-import React from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { PrivateRoutes } from './routes/PrivateRoutes'
-import { PublicRoutes } from './routes/PublicRoutes'
-import { Suspense } from 'react'
-import { Spinner } from './components/ui/spinner'
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/context/AuthContext";
 
-const NotFound = React.lazy(() => import('./pages/NotFound'))
-const App = () => {
+import GuestRoute from "./routes/GuestRoute";
+import ProtectedRoute from "./routes/ProtectedRoute";
+
+import LoginForm from "./pages/UnAuth/LoginForm";
+import RegisterForm from "./pages/UnAuth/RegisterForm";
+import Dashboard from "./pages/Auth/Dashboard";
+
+export default function App() {
   return (
-    <>
-      <Suspense fallback={<Spinner />}>
-        <Router>
-          <Routes>
-            {PublicRoutes.map((item) => (
-              <Route
-                key={item.key}
-                element={<item.Component />}
-                path={item.path}
-              />
-            ))}
-            {PrivateRoutes.map((item) => (
-              <Route
-                key={item.key}
-                element={<item.Component />}
-                path={item.path}
-              />
-            ))}
-            <Route path="*" key="not-found" element={<NotFound />} />
-          </Routes>
-        </Router>
-      </Suspense>
-    </>
-  )
-}
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
 
-export default App
+          {/* Guest Routes */}
+          <Route element={<GuestRoute />}>
+            <Route path="/" element={<LoginForm />} />
+            <Route path="/login" element={<LoginForm />} />
+            <Route path="/register" element={<RegisterForm />} />
+          </Route>
+
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+          </Route>
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}

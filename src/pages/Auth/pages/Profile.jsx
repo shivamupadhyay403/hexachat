@@ -8,22 +8,25 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import Avatar from "../ui/Avatar";
+import useUser from "@/hooks/useUser";
 
 const GENDER_OPTIONS = ["Male", "Female", "Non-binary", "Prefer not to say"];
 
 const STATS = [
-  { label: "Posts",     value: 48 },
+  { label: "Posts", value: 48 },
   { label: "Followers", value: "1.2k" },
   { label: "Following", value: 230 },
 ];
 
 export default function Profile() {
+  const { getUserFirstName, getUserLastName, getUserGender, getUserName } =
+    useUser();
   const [form, setForm] = useState({
-    firstName: "Arjun",
-    lastName: "Kumar",
-    handle: "@arjunk",
+    firstName: getUserFirstName(),
+    lastName: getUserLastName(),
+    handle: getUserName(),
     bio: "Building things on the internet. Coffee addict ☕",
-    gender: "Male",
+    gender: getUserGender(),
     location: "Varanasi, India",
     website: "",
   });
@@ -51,7 +54,10 @@ export default function Profile() {
         <CardContent className="p-6 space-y-5">
           {/* Avatar upload */}
           <div className="flex flex-col items-center gap-3">
-            <div className="relative group cursor-pointer" onClick={() => fileRef.current.click()}>
+            <div
+              className="relative group cursor-pointer"
+              onClick={() => fileRef.current.click()}
+            >
               {avatarPreview ? (
                 <img
                   src={avatarPreview}
@@ -87,7 +93,9 @@ export default function Profile() {
                 key={stat.label}
                 className="bg-muted rounded-xl p-3 text-center"
               >
-                <p className="text-base font-semibold text-foreground">{stat.value}</p>
+                <p className="text-base font-semibold text-foreground">
+                  {stat.value}
+                </p>
                 <p className="text-xs text-muted-foreground">{stat.label}</p>
               </div>
             ))}
@@ -102,7 +110,9 @@ export default function Profile() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">First name</label>
+              <label className="text-xs text-muted-foreground font-medium">
+                First name
+              </label>
               <Input
                 value={form.firstName}
                 onChange={update("firstName")}
@@ -110,7 +120,9 @@ export default function Profile() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">Last name</label>
+              <label className="text-xs text-muted-foreground font-medium">
+                Last name
+              </label>
               <Input
                 value={form.lastName}
                 onChange={update("lastName")}
@@ -120,7 +132,9 @@ export default function Profile() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground font-medium">Username</label>
+            <label className="text-xs text-muted-foreground font-medium">
+              Username
+            </label>
             <Input
               value={form.handle}
               onChange={update("handle")}
@@ -129,7 +143,9 @@ export default function Profile() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground font-medium">Bio</label>
+            <label className="text-xs text-muted-foreground font-medium">
+              Bio
+            </label>
             <Textarea
               value={form.bio}
               onChange={update("bio")}
@@ -140,7 +156,9 @@ export default function Profile() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">Gender</label>
+              <label className="text-xs text-muted-foreground font-medium">
+                Gender
+              </label>
               <select
                 value={form.gender}
                 onChange={update("gender")}
@@ -152,7 +170,9 @@ export default function Profile() {
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">Location</label>
+              <label className="text-xs text-muted-foreground font-medium">
+                Location
+              </label>
               <Input
                 value={form.location}
                 onChange={update("location")}
@@ -162,7 +182,9 @@ export default function Profile() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground font-medium">Website</label>
+            <label className="text-xs text-muted-foreground font-medium">
+              Website
+            </label>
             <Input
               value={form.website}
               onChange={update("website")}

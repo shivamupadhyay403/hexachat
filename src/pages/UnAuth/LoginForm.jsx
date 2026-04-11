@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import useRedirection from "@/hooks/useRedirection";
-import { useAuth } from "@/context/AuthContext.jsx";
+import { useAuth } from "../../context/Authcontext";
 import api from "@/assets/api"
 
 export const loginSchema = z.object({

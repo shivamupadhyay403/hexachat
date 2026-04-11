@@ -8,10 +8,13 @@ import {
 import { Input }  from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Avatar     from "../ui/Avatar";
-import { fetchMessages, appendMessage } from "@/store/slices/chatSlice";
-import { getSocket }            from "@/socket/socketClient";
-import { useSocket }            from "@/hooks/useSocket";
-import useUser                  from "@/hooks/useUser";
+import {
+  fetchMessages, appendMessage,
+  upsertContact, clearUnread,
+} from "@/store/slices/chatSlice";
+import { getSocket }             from "@/socket/socketClient";
+import { useSocket }             from "@/hooks/useSocket";
+import useUser                   from "@/hooks/useUser";
 import { playReceiveSound, playSentSound } from "@/utils/chatSound";
 
 // ─── Typing bubble ────────────────────────────────────────────────────────────
@@ -31,6 +34,7 @@ function TypingBubble() {
 function ContactItem({ contact, active, onClick }) {
   const onlineUsers = useSelector((s) => s.onlineUsers);
   const typingUsers = useSelector((s) => s.chat.typingUsers);
+  const unread      = useSelector((s) => s.chat.unread[contact.id] ?? 0);
   const isOnline    = !!onlineUsers[contact.id];
   const isTyping    = !!typingUsers[contact.id];
 
@@ -47,17 +51,27 @@ function ContactItem({ contact, active, onClick }) {
           <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-background rounded-full" />
         )}
       </div>
+
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
           <p className="text-sm font-semibold text-foreground truncate">{contact.name}</p>
           {contact.lastTime && (
-            <span className="text-[10px] text-muted-foreground flex-shrink-0">{contact.lastTime}</span>
+            <span className="text-[10px] text-muted-foreground flex-shrink-0">
+              {contact.lastTime}
+            </span>
           )}
         </div>
         <p className={`text-xs truncate ${isTyping ? "text-emerald-500 italic" : "text-muted-foreground"}`}>
           {isTyping ? "typing..." : (contact.lastMsg || "Say hi!")}
         </p>
       </div>
+
+      {/* Unread badge */}
+      {unread > 0 && (
+        <span className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center">
+          {unread > 99 ? "99+" : unread}
+        </span>
+      )}
     </div>
   );
 }
@@ -98,29 +112,35 @@ export default function Chats() {
 
   useSocket(myId);
 
+  // Request notification permission once on mount
+  useEffect(() => {
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
   const onlineUsers   = useSelector((s) => s.onlineUsers);
   const conversations = useSelector((s) => s.chat.conversations);
   const loadingFor    = useSelector((s) => s.chat.loadingFor);
   const typingUsers   = useSelector((s) => s.chat.typingUsers);
+  const reduxContacts = useSelector((s) => s.chat.contacts); // ← from Redux now
 
   const [activeContact,  setActiveContact]  = useState(null);
-  const [recentContacts, setRecentContacts] = useState([]);
   const [input,  setInput]  = useState("");
   const [query,  setQuery]  = useState("");
   const bottomRef   = useRef(null);
-  const typingTimer = useRef(null); // debounce typing stop
+  const typingTimer = useRef(null);
 
-  const messages    = activeContact ? (conversations[activeContact.id] ?? []) : [];
+  const messages        = activeContact ? (conversations[activeContact.id] ?? []) : [];
   const contactIsTyping = activeContact ? !!typingUsers[activeContact.id] : false;
 
-  // ── Play sound when new message arrives ───────────────────────────────────
+  // ── Play sound for incoming messages ──────────────────────────────────────
   const prevMsgCount = useRef(0);
   useEffect(() => {
     if (!activeContact) return;
     const count = messages.length;
     if (count > prevMsgCount.current) {
       const latest = messages[count - 1];
-      // Only play receive sound for messages from the other person
       if (latest && String(latest.senderId) !== myId && !latest.pending) {
         playReceiveSound();
       }
@@ -132,11 +152,15 @@ export default function Chats() {
   const openContact = useCallback((contact) => {
     const c = { ...contact, id: String(contact.id) };
     setActiveContact(c);
-    setRecentContacts((prev) =>
-      prev.some((p) => p.id === c.id) ? prev : [c, ...prev]
-    );
+
+    // Sync into Redux contacts list (so it persists if navigated away)
+    dispatch(upsertContact({ id: c.id, name: c.name, username: c.username ?? "" }));
+
+    // Clear unread badge
+    dispatch(clearUnread(c.id));
+
     dispatch(fetchMessages(c.id));
-    prevMsgCount.current = 0; // reset so we don't fire sound on history load
+    prevMsgCount.current = 0;
   }, [dispatch]);
 
   // ── Handle navigation from FindPeople ─────────────────────────────────────
@@ -150,19 +174,19 @@ export default function Chats() {
     const mql = window.matchMedia("(min-width: 768px)");
     const select = () => {
       if (mql.matches && !location.state?.initContact)
-        setActiveContact((c) => c ?? recentContacts[0] ?? null);
+        setActiveContact((c) => c ?? reduxContacts[0] ?? null);
     };
     select();
     mql.addEventListener("change", select);
     return () => mql.removeEventListener("change", select);
-  }, [recentContacts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [reduxContacts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Scroll to bottom ──────────────────────────────────────────────────────
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, contactIsTyping]);
 
-  // ── Typing emit helpers ───────────────────────────────────────────────────
+  // ── Typing helpers ────────────────────────────────────────────────────────
   const emitTyping = (isTyping) => {
     const socket = getSocket();
     if (!socket?.connected || !activeContact) return;
@@ -171,16 +195,11 @@ export default function Chats() {
 
   const handleInputChange = (e) => {
     setInput(e.target.value);
-
-    // Emit typing: true immediately
     emitTyping(true);
-
-    // Debounce typing: false — stop after 1.5s of no keystrokes
     clearTimeout(typingTimer.current);
     typingTimer.current = setTimeout(() => emitTyping(false), 1500);
   };
 
-  // Stop typing on unmount / contact change
   useEffect(() => {
     return () => {
       clearTimeout(typingTimer.current);
@@ -192,12 +211,8 @@ export default function Chats() {
   const sendMessage = () => {
     if (!input.trim() || !activeContact) return;
     const socket = getSocket();
-    if (!socket?.connected) {
-      console.warn("Socket not connected");
-      return;
-    }
+    if (!socket?.connected) { console.warn("Socket not connected"); return; }
 
-    // Stop typing indicator immediately on send
     clearTimeout(typingTimer.current);
     emitTyping(false);
 
@@ -205,25 +220,28 @@ export default function Chats() {
     const text   = input.trim();
 
     dispatch(appendMessage({
-      id:          tempId,
-      tempId,
-      text,
-      senderId:    myId,
-      recipientId: activeContact.id,
-      myId,
-      pending:     true,
-      createdAt:   new Date().toISOString(),
+      id: tempId, tempId, text,
+      senderId: myId, recipientId: activeContact.id,
+      myId, pending: true,
+      createdAt: new Date().toISOString(),
+    }));
+
+    // Update contact preview in sidebar
+    dispatch(upsertContact({
+      id:       activeContact.id,
+      name:     activeContact.name,
+      username: activeContact.username ?? "",
+      lastMsg:  text,
+      lastTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     }));
 
     socket.emit("private_message", { recipientId: activeContact.id, tempId, text });
-
-    playSentSound(); // ← sent sound
-
+    playSentSound();
     setInput("");
   };
 
   // ── Search filter ─────────────────────────────────────────────────────────
-  const filtered = recentContacts.filter(
+  const filtered = reduxContacts.filter(
     (c) =>
       c.name.toLowerCase().includes(query.toLowerCase()) ||
       (c.username ?? "").toLowerCase().includes(query.toLowerCase())
@@ -294,7 +312,6 @@ export default function Chats() {
                 <p className="text-sm font-semibold text-foreground truncate">
                   {activeContact.name}
                 </p>
-                {/* Show "typing..." in header when contact is typing */}
                 {contactIsTyping ? (
                   <p className="text-xs text-emerald-500 italic">typing...</p>
                 ) : (
@@ -333,7 +350,6 @@ export default function Chats() {
                   {messages.map((msg) => (
                     <Message key={msg.id ?? msg.tempId} msg={msg} myId={myId} />
                   ))}
-                  {/* Typing bubble at the bottom of messages */}
                   {contactIsTyping && <TypingBubble />}
                 </>
               )}
@@ -345,7 +361,7 @@ export default function Chats() {
               <Input
                 placeholder="Type a message..."
                 value={input}
-                onChange={handleInputChange}      // ← was (e) => setInput(e.target.value)
+                onChange={handleInputChange}
                 onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                 className="flex-1 rounded-xl text-sm h-9"
               />

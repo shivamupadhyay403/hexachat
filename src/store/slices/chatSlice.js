@@ -16,9 +16,11 @@ export const fetchMessages = createAsyncThunk(
 const chatSlice = createSlice({
   name: "chat",
   initialState: {
-    conversations: {},  // { [userId]: Message[] }
+    conversations: {},   // { [userId]: Message[] }
+    contacts:      [],   // [{ id, name, username, lastMsg, lastTime }]  ← NEW
     loadingFor:    null,
-    typingUsers:   {},  // { [userId]: true }
+    typingUsers:   {},   // { [userId]: true }
+    unread:        {},   // { [userId]: count }                          ← NEW
   },
   reducers: {
     appendMessage(state, { payload }) {
@@ -31,7 +33,7 @@ const chatSlice = createSlice({
 
       const exists = state.conversations[key].some(
         (m) =>
-          (payload.id && m.id === payload.id) ||
+          (payload.id    && m.id    === payload.id) ||
           (payload.tempId && m.tempId === payload.tempId)
       );
       if (exists) return;
@@ -41,13 +43,12 @@ const chatSlice = createSlice({
 
     replaceTempMessage(state, { payload }) {
       const recipientId = String(payload.recipientId);
-      const key = recipientId;
-      if (!state.conversations[key]) return;
-      const idx = state.conversations[key].findIndex(
+      if (!state.conversations[recipientId]) return;
+      const idx = state.conversations[recipientId].findIndex(
         (m) => m.tempId === payload.tempId
       );
       if (idx !== -1) {
-        state.conversations[key][idx] = {
+        state.conversations[recipientId][idx] = {
           ...payload,
           senderId:    String(payload.senderId),
           recipientId: String(payload.recipientId),
@@ -58,11 +59,36 @@ const chatSlice = createSlice({
 
     setTyping(state, { payload }) {
       const { userId, isTyping } = payload;
-      if (isTyping) {
-        state.typingUsers[userId] = true;
+      if (isTyping) state.typingUsers[userId] = true;
+      else delete state.typingUsers[userId];
+    },
+
+    // Adds or updates a contact in the sidebar list
+    upsertContact(state, { payload }) {
+      const idx = state.contacts.findIndex((c) => c.id === payload.id);
+      if (idx !== -1) {
+        // Move to top and update preview
+        const updated = { ...state.contacts[idx], ...payload };
+        state.contacts.splice(idx, 1);
+        state.contacts.unshift(updated);
       } else {
-        delete state.typingUsers[userId];
+        state.contacts.unshift(payload);
       }
+      // Bump unread count if this is an incoming message (has lastMsg set by socket)
+      if (payload.bumpUnread) {
+        state.unread[payload.id] = (state.unread[payload.id] ?? 0) + 1;
+      }
+    },
+
+    // Call when user opens a conversation — clears the badge
+    clearUnread(state, { payload: userId }) {
+      delete state.unread[userId];
+    },
+
+    setTyping(state, { payload }) {
+      const { userId, isTyping } = payload;
+      if (isTyping) state.typingUsers[userId] = true;
+      else delete state.typingUsers[userId];
     },
   },
 
@@ -88,5 +114,12 @@ const chatSlice = createSlice({
   },
 });
 
-export const { appendMessage, replaceTempMessage, setTyping } = chatSlice.actions;
+export const {
+  appendMessage,
+  replaceTempMessage,
+  setTyping,
+  upsertContact,
+  clearUnread,
+} = chatSlice.actions;
+
 export default chatSlice.reducer;

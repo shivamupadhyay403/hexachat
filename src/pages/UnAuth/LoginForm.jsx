@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import useRedirection from "@/hooks/useRedirection";
 import { useAuth } from "../../context/Authcontext";
 import api from "@/assets/api"
+import { LOGIN } from "@/store/api";
 
 export const loginSchema = z.object({
   email: z
@@ -70,7 +71,7 @@ export default function LoginForm() {
     setServerError("");
     setLoading(true);
     try {
-      const responseData = await api.post("/user/login", {
+      const responseData = await api.post(LOGIN, {
         email: formData.email,
         password: formData.password,
       });

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import useRedirection from "@/hooks/useRedirection";
 
 import api from "@/assets/api";
+import { REGISTER } from "@/store/api";
 
 const registerSchema = z
   .object({
@@ -68,7 +69,7 @@ export default function RegisterForm() {
     setServerSuccess("");
     setLoading(true);
     try {
-      const { data } = await api.post("/user/register", {
+      const { data } = await api.post(REGISTER, {
         firstname: formData.firstname,
         lastname: formData.lastname,
         email: formData.email,

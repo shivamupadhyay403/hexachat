@@ -90,28 +90,19 @@ export default function FindPeople() {
   const dispatch = useDispatch();
   useEffect(() => {
     dispatch(getUsers());
-  }, []);
-  const responseData = useSelector((item) => item?.getAllUsers);
-  const filtered = datavalues.filter(
+  }, [dispatch]);
+
+  const responseData = useSelector((state) => state?.getAllUsers);
+
+  const filtered = (responseData?.data || []).filter(
     (u) =>
       u.username.toLowerCase().includes(query.toLowerCase()) ||
       u.email.toLowerCase().includes(query.toLowerCase()),
   );
-  useEffect(() => {
-    if (!responseData?.isLoading) {
-      if (responseData?.data) {
-        setDataValues(responseData?.data);
-        setIsLoading(false);
-      } else {
-        setDataValues([]);
-        setIsLoading(false);
-      }
-    }
-  }, [responseData?.isLoading, responseData?.data]);
-  if (isLoading) {
+
+  if (responseData?.isLoading) {
     return <Spinner />;
   }
-  console.log(datavalues);
   return (
     <div className="py-4 space-y-5">
       {/* Search */}
@@ -135,7 +126,7 @@ export default function FindPeople() {
         ))}
       </div>
 
-      {filtered.length === 0 && (
+      {!isLoading && filtered.length === 0 && (
         <div className="text-center py-16 text-muted-foreground text-sm">
           No users found for "{query}"
         </div>

@@ -16,46 +16,70 @@ export const fetchMessages = createAsyncThunk(
 const chatSlice = createSlice({
   name: "chat",
   initialState: {
-    // { [userId]: Message[] }
-    conversations: {},
-    loadingFor: null,
+    conversations: {},  // { [userId]: Message[] }
+    loadingFor:    null,
+    typingUsers:   {},  // { [userId]: true }
   },
   reducers: {
     appendMessage(state, { payload }) {
-      // payload: { senderId, recipientId, ...msg }
-      const key =
-        payload.senderId === payload.myId
-          ? payload.recipientId
-          : payload.senderId;
+      const myId        = String(payload.myId);
+      const senderId    = String(payload.senderId);
+      const recipientId = String(payload.recipientId);
+      const key         = senderId === myId ? recipientId : senderId;
+
       if (!state.conversations[key]) state.conversations[key] = [];
-      // avoid duplicate if message_delivered fires alongside private_message
+
       const exists = state.conversations[key].some(
-        (m) => m.id === payload.id || (payload.tempId && m.tempId === payload.tempId)
+        (m) =>
+          (payload.id && m.id === payload.id) ||
+          (payload.tempId && m.tempId === payload.tempId)
       );
-      if (!exists) state.conversations[key].push(payload);
+      if (exists) return;
+
+      state.conversations[key].push({ ...payload, senderId, recipientId, myId });
     },
+
     replaceTempMessage(state, { payload }) {
-      // swap optimistic message with confirmed one
-      const { recipientId, tempId, ...confirmed } = payload;
+      const recipientId = String(payload.recipientId);
       const key = recipientId;
       if (!state.conversations[key]) return;
-      const idx = state.conversations[key].findIndex((m) => m.tempId === tempId);
-      if (idx !== -1) state.conversations[key][idx] = { ...confirmed, recipientId };
+      const idx = state.conversations[key].findIndex(
+        (m) => m.tempId === payload.tempId
+      );
+      if (idx !== -1) {
+        state.conversations[key][idx] = {
+          ...payload,
+          senderId:    String(payload.senderId),
+          recipientId: String(payload.recipientId),
+          pending:     false,
+        };
+      }
+    },
+
+    setTyping(state, { payload }) {
+      const { userId, isTyping } = payload;
+      if (isTyping) {
+        state.typingUsers[userId] = true;
+      } else {
+        delete state.typingUsers[userId];
+      }
     },
   },
+
   extraReducers: (builder) => {
     builder
       .addCase(fetchMessages.pending, (state, { meta }) => {
-        state.loadingFor = meta.arg;
+        state.loadingFor = String(meta.arg);
       })
       .addCase(fetchMessages.fulfilled, (state, { payload }) => {
         state.loadingFor = null;
         state.conversations[payload.userId] = payload.messages.map((m) => ({
-          id: m._id,
-          text: m.text,
-          senderId: m.sender,
-          recipientId: m.receiver,
-          createdAt: m.createdAt,
+          id:          String(m._id),
+          text:        m.text,
+          senderId:    String(m.sender),
+          recipientId: String(m.receiver),
+          createdAt:   m.createdAt,
+          pending:     false,
         }));
       })
       .addCase(fetchMessages.rejected, (state) => {
@@ -64,5 +88,5 @@ const chatSlice = createSlice({
   },
 });
 
-export const { appendMessage, replaceTempMessage } = chatSlice.actions;
+export const { appendMessage, replaceTempMessage, setTyping } = chatSlice.actions;
 export default chatSlice.reducer;

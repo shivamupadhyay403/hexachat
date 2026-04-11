@@ -18,7 +18,8 @@ export default function App() {
       initSocket(getUserId(), getUserName());
     }
   }, [getUserId(), getUserName()]);
-  useSocket();
+  useSocket(getUserId());
+
   return (
     <BrowserRouter>
       <AuthProvider>

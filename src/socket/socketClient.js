@@ -6,8 +6,7 @@ export const getSocket = () => socket;
 
 export const initSocket = (userId, username) => {
   if (socket?.connected) return socket;
-
-  socket = io(import.meta.env.VITE_API_URL, {
+  socket = io(import.meta.env.VITE_SOCKET_URL, {
     transports: ["websocket"],
     autoConnect: true,
   });

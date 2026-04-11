@@ -43,12 +43,12 @@ function PeopleCard({ user }) {
           </span>
           followers
         </div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        {/* <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <span className="font-semibold text-foreground">
             {user.followingCount.toLocaleString()}
           </span>
           following
-        </div>
+        </div> */}
 
         {/* Gallery placeholders */}
         <div className="grid grid-cols-3 gap-1 w-full">

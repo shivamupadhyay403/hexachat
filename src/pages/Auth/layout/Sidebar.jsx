@@ -3,19 +3,25 @@
 // Mobile/tablet  : fixed slide-over, off-screen until open=true
 
 import {
-  Home, ImagePlus, MessageCircle, Users,
-  User, Settings, X, Hexagon,
+  Home,
+  ImagePlus,
+  MessageCircle,
+  Users,
+  User,
+  Settings,
+  X,
+  Hexagon,
 } from "lucide-react";
-
+import { LogOut } from "lucide-react";
 import NavButton from "../ui/NavButton";
-import UserChip  from "../ui/UserChip";
-
+import UserChip from "../ui/UserChip";
+import { useAuth } from "@/context/Authcontext";
 const NAV_ITEMS = [
-  { id: "feed",    label: "Feed",        icon: Home },
-  { id: "post",    label: "Create Post", icon: ImagePlus },
-  { id: "chats",   label: "Chats",       icon: MessageCircle },
-  { id: "people",  label: "Find People", icon: Users },
-  { id: "profile", label: "Profile",     icon: User },
+  { id: "feed", label: "Feed", icon: Home },
+  { id: "post", label: "Create Post", icon: ImagePlus },
+  { id: "chats", label: "Chats", icon: MessageCircle },
+  { id: "people", label: "Find People", icon: Users },
+  { id: "profile", label: "Profile", icon: User },
 ];
 
 export default function Sidebar({
@@ -25,6 +31,7 @@ export default function Sidebar({
   onClose,
   currentUser = { name: "Arjun Kumar", handle: "@arjunk" },
 }) {
+  const { logout } = useAuth();
   return (
     <>
       {/* Backdrop — mobile/tablet only, shown when slide-over is open */}
@@ -85,7 +92,10 @@ export default function Sidebar({
               icon={icon}
               label={label}
               active={activeTab === id}
-              onClick={() => { onNavigate(id); onClose(); }}
+              onClick={() => {
+                onNavigate(id);
+                onClose();
+              }}
             />
           ))}
 
@@ -93,17 +103,30 @@ export default function Sidebar({
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-3 mb-2">
               System
             </p>
-            <NavButton icon={Settings} label="Settings" active={false} onClick={() => {}} />
+            <NavButton
+              icon={Settings}
+              label="Settings"
+              active={false}
+              onClick={() => {}}
+            />
           </div>
         </nav>
 
         {/* ── User chip ── */}
-        <div className="px-3 py-3 border-t border-border">
+        <div className="px-3 py-3 border-t border-border space-y-2">
           <UserChip
             name={currentUser.name}
             handle={currentUser.handle}
             avatarSrc={currentUser.avatarSrc}
           />
+
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-red-500 hover:bg-red-50 transition"
+          >
+            <LogOut size={16} />
+            Logout
+          </button>
         </div>
       </aside>
     </>

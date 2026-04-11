@@ -9,7 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import Avatar from "../ui/Avatar";
 import useUser from "@/hooks/useUser";
-
+import { LogOut } from "lucide-react";
+import { useAuth } from "@/context/Authcontext";
 const GENDER_OPTIONS = ["Male", "Female", "Non-binary", "Prefer not to say"];
 
 const STATS = [
@@ -19,6 +20,7 @@ const STATS = [
 ];
 
 export default function Profile() {
+  const { logout } = useAuth();
   const { getUserFirstName, getUserLastName, getUserGender, getUserName } =
     useUser();
   const [form, setForm] = useState({
@@ -211,6 +213,16 @@ export default function Profile() {
           </Button>
         </CardContent>
       </Card>
+      <div className="px-1">
+        <Button
+          variant="outline"
+          onClick={logout}
+          className="w-full rounded-xl border-red-300 text-red-500 hover:bg-red-50 flex items-center justify-center gap-2"
+        >
+          <LogOut size={16} />
+          Logout
+        </Button>
+      </div>
     </div>
   );
 }

@@ -23,6 +23,16 @@ const useUser = () => {
   const getUserName = () => {
     return localStorage.getItem("user_name");
   };
+  const getUserFollowingCount = () => {
+    return "0";
+  };
+  const getUserPostCount = () => {
+    return "0";
+  };
+  const getUserFollowersCount = () => {
+    return "0";
+  };
+
   return {
     getUserFirstName,
     getUserLastName,
@@ -31,6 +41,9 @@ const useUser = () => {
     getUserEmail,
     getUserGender,
     getUserName,
+    getUserFollowersCount,
+    getUserFollowingCount,
+    getUserPostCount,
   };
 };
 

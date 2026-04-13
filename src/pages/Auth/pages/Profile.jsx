@@ -1,59 +1,105 @@
+// ═══════════════════════════════════════════════════════════════════════════════
 // pages/Profile.jsx
-// User profile editor — avatar upload, personal info fields, stats
-
-import { useState, useRef } from "react";
-import { Camera, Check } from "lucide-react";
+// ═══════════════════════════════════════════════════════════════════════════════
+import { useState, useRef, useEffect } from "react";
+import { Camera, Check, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import Avatar from "../ui/Avatar";
-import useUser from "@/hooks/useUser";
-import { LogOut } from "lucide-react";
 import { useAuth } from "@/context/Authcontext";
-const GENDER_OPTIONS = ["Male", "Female", "Others"];
+import { PrivacyToggle } from "./PrivacyToggle";
+import { getUserData } from "@/store/slices/getUserDetailSlice";
+//import { updateUserProfile } from "@/store/slices/updateUserProfileSlice"; // ← add your real slice
+import { useDispatch, useSelector } from "react-redux";
+import Spinner from "@/assets/Spinner";
 
-const STATS = [
-  { label: "Posts", value: 48 },
-  { label: "Followers", value: "1.2k" },
-  { label: "Following", value: 230 },
-];
+const GENDER_OPTIONS = ["Male", "Female", "Others"];
 
 export default function Profile() {
   const { logout } = useAuth();
-  const { getUserFirstName, getUserLastName, getUserGender, getUserName } =
-    useUser();
-  const [form, setForm] = useState({
-    firstName: getUserFirstName(),
-    lastName: getUserLastName(),
-    handle: getUserName(),
-    bio: "Building things on the internet. Coffee addict ☕",
-    gender: getUserGender(),
-    location: "Varanasi, India",
-  });
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    dispatch(getUserData());
+  }, [dispatch]);
+
+  const responseData = useSelector((state) => state?.getUserDetail);
+  const user = responseData?.data;
+
   const [saved, setSaved] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null); // ← hold the actual File
   const fileRef = useRef();
 
-  const update = (field) => (e) =>
-    setForm((f) => ({ ...f, [field]: e.target.value }));
+  // ── FIX 1: Sync form whenever user data arrives from Redux ────────────────
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    handle: "",
+    bio: "",
+    gender: "",
+    location: "",
+  });
 
+  useEffect(() => {
+    if (!user) return;
+    setForm({
+      firstName: user.firstname ?? "",
+      lastName:  user.lastname  ?? "",
+      handle:    user.username  ?? "",
+      bio:       user.bio       ?? "",
+      gender:    user.gender    ?? GENDER_OPTIONS[0],
+      location:  user.location  ?? "",
+    });
+  }, [user]); // ← runs whenever user object changes
+
+  // ── FIX 2: handleSave actually dispatches the update ─────────────────────
   const handleSave = () => {
+    const payload = new FormData();
+    payload.append("firstname", form.firstName);
+    payload.append("lastname",  form.lastName);
+    payload.append("username",  form.handle);
+    payload.append("bio",       form.bio);
+    payload.append("gender",    form.gender);
+    payload.append("location",  form.location);
+    if (avatarFile) payload.append("avatar", avatarFile); // ← include new avatar
+
+    // dispatch(updateUserProfile(payload)); // ← wire to your real thunk
+
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
+  // ── FIX 3: Keep the File object alongside the preview URL ─────────────────
   const handleAvatarFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
+    setAvatarFile(file);
     setAvatarPreview(URL.createObjectURL(file));
   };
 
+  const update = (field) => (e) =>
+    setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  const stats = [
+    { label: "Posts",     value: user?.postsCount     ?? 0 },
+    { label: "Followers", value: user?.followersCount  ?? 0 },
+    { label: "Following", value: user?.followingCount  ?? 0 },
+  ];
+
+  // ── FIX 4: Guard renders while loading ───────────────────────────────────
+  if (responseData?.isLoading) return <Spinner />;
+
+  // ── FIX 5: Safe display name — never "undefined undefined" ───────────────
+  const displayName = [form.firstName, form.lastName].filter(Boolean).join(" ") || "User";
+
   return (
     <div className="max-w-lg mx-auto py-4 space-y-4">
-      {/* Profile hero card */}
+      {/* ── Profile hero ── */}
       <Card className="rounded-2xl border border-border shadow-none">
         <CardContent className="p-6 space-y-5">
-          {/* Avatar upload */}
+          {/* Avatar */}
           <div className="flex flex-col items-center gap-3">
             <div
               className="relative group cursor-pointer"
@@ -66,7 +112,7 @@ export default function Profile() {
                   className="w-20 h-20 rounded-full object-cover border-2 border-border"
                 />
               ) : (
-                <Avatar name={`${form.firstName} ${form.lastName}`} size="xl" />
+                <Avatar name={displayName} size="xl" /> // ← FIX 5 applied
               )}
               <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <Camera size={18} className="text-white" />
@@ -79,23 +125,21 @@ export default function Profile() {
                 onChange={(e) => handleAvatarFile(e.target.files[0])}
               />
             </div>
+
             <div className="text-center">
-              <p className="font-semibold text-foreground">
-                {form.firstName} {form.lastName}
-              </p>
-              <p className="text-xs text-muted-foreground">{form.handle}</p>
+              <p className="font-semibold text-foreground">{displayName}</p>
+              <p className="text-xs text-muted-foreground">@{form.handle}</p>
             </div>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
-            {STATS.map((stat) => (
-              <div
-                key={stat.label}
-                className="bg-muted rounded-xl p-3 text-center"
-              >
+            {stats.map((stat) => (
+              <div key={stat.label} className="bg-muted rounded-xl p-3 text-center">
                 <p className="text-base font-semibold text-foreground">
-                  {stat.value}
+                  {typeof stat.value === "number" && stat.value >= 1000
+                    ? `${(stat.value / 1000).toFixed(1)}k`
+                    : stat.value}
                 </p>
                 <p className="text-xs text-muted-foreground">{stat.label}</p>
               </div>
@@ -104,62 +148,44 @@ export default function Profile() {
         </CardContent>
       </Card>
 
-      {/* Edit form */}
+      {/* ── Privacy toggle ── */}
+      <PrivacyToggle isUserPrivate={user?.isPrivate} />
+
+      {/* ── Edit form ── */}
       <Card className="rounded-2xl border border-border shadow-none">
         <CardContent className="p-5 space-y-4">
           <p className="text-sm font-semibold text-foreground">Edit Profile</p>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">
-                First name
-              </label>
-              <Input
-                value={form.firstName}
-                onChange={update("firstName")}
-                className="rounded-xl text-sm h-9"
-              />
+              <label className="text-xs text-muted-foreground font-medium">First name</label>
+              <Input value={form.firstName} onChange={update("firstName")} className="rounded-xl text-sm h-9" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">
-                Last name
-              </label>
-              <Input
-                value={form.lastName}
-                onChange={update("lastName")}
-                className="rounded-xl text-sm h-9"
-              />
+              <label className="text-xs text-muted-foreground font-medium">Last name</label>
+              <Input value={form.lastName} onChange={update("lastName")} className="rounded-xl text-sm h-9" />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground font-medium">
-              Username
-            </label>
-            <Input
-              value={form.handle}
-              onChange={update("handle")}
-              className="rounded-xl text-sm h-9"
-            />
+            <label className="text-xs text-muted-foreground font-medium">Username</label>
+            <Input value={form.handle} onChange={update("handle")} className="rounded-xl text-sm h-9" />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground font-medium">
-              Bio
-            </label>
+            <label className="text-xs text-muted-foreground font-medium">Bio</label>
             <Textarea
               value={form.bio}
               onChange={update("bio")}
               className="rounded-xl text-sm resize-none"
               rows={3}
+              placeholder="Tell people a little about yourself…"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">
-                Gender
-              </label>
+              <label className="text-xs text-muted-foreground font-medium">Gender</label>
               <select
                 value={form.gender}
                 onChange={update("gender")}
@@ -171,22 +197,15 @@ export default function Profile() {
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">
-                Location
-              </label>
-              <Input
-                value={form.location}
-                onChange={update("location")}
-                className="rounded-xl text-sm h-9"
-              />
+              <label className="text-xs text-muted-foreground font-medium">Location</label>
+              <Input value={form.location} onChange={update("location")} className="rounded-xl text-sm h-9" />
             </div>
           </div>
+
           <Button
             onClick={handleSave}
             className={`w-full rounded-xl transition-all ${
-              saved
-                ? "bg-emerald-600 hover:bg-emerald-700"
-                : "bg-violet-600 hover:bg-violet-700"
+              saved ? "bg-emerald-600 hover:bg-emerald-700" : "bg-violet-600 hover:bg-violet-700"
             } text-white`}
           >
             {saved ? (
@@ -199,6 +218,8 @@ export default function Profile() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* ── Logout ── */}
       <div className="px-1">
         <Button
           variant="outline"

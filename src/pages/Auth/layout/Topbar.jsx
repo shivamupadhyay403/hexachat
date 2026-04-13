@@ -9,6 +9,7 @@ const PAGE_META = {
   post: { title: "Create Post", sub: "Share something" },
   chats: { title: "Chats", sub: "Your conversations" },
   people: { title: "Find People", sub: "Discover connections" },
+  notifications: { title: "Notifications", sub: "Your Notifications" },
   profile: { title: "Profile", sub: "Your public identity" },
 };
 

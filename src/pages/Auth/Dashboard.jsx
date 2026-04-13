@@ -10,8 +10,16 @@ import Post from "./pages/Post";
 import Chats from "./pages/Chats";
 import FindPeople from "./pages/FindPeople";
 import Profile from "./pages/Profile";
-import { Home, ImagePlus, MessageCircle, Users, User } from "lucide-react";
+import {
+  Home,
+  ImagePlus,
+  MessageCircle,
+  Users,
+  User,
+  Bell,
+} from "lucide-react";
 import useUser from "@/hooks/useUser";
+import Notifications from "./pages/Notifications";
 const NAV_ITEMS = [
   { label: "Feed", icon: Home, path: "/dashboard/feed", tab: "feed" },
   {
@@ -33,6 +41,12 @@ const NAV_ITEMS = [
     tab: "people",
   },
   { label: "Profile", icon: User, path: "/dashboard/profile", tab: "profile" },
+  {
+    label: "Notifications",
+    icon: Bell,
+    path: "/dashboard/notifications",
+    tab: "notifications",
+  },
 ];
 export default function Dashboard() {
   const { getUserFullName, getUserEmail } = useUser();
@@ -81,6 +95,7 @@ export default function Dashboard() {
               path="profile"
               element={<Profile currentUser={CURRENT_USER} />}
             />
+            <Route path="notifications" element={<Notifications />} />
           </Routes>
         </main>
       </div>

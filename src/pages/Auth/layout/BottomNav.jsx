@@ -3,7 +3,7 @@
 // Visible only on mobile/tablet (below lg breakpoint)
 // Post tab is a plain icon — no raised pill treatment
 
-import { Home, ImagePlus, MessageCircle, Users, User } from "lucide-react";
+import { Home, ImagePlus, MessageCircle, Users, User, Bell } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const NAV_ITEMS = [
@@ -11,12 +11,13 @@ const NAV_ITEMS = [
   { label: "Create Post", icon: ImagePlus, path: "/dashboard/post" },
   { label: "Chats", icon: MessageCircle, path: "/dashboard/chats" },
   { label: "Find People", icon: Users, path: "/dashboard/people" },
+  { label: "Notifications", icon: Bell, path: "/dashboard/notifications" },
   { label: "Profile", icon: User, path: "/dashboard/profile" },
 ];
 
 export default function BottomNav() {
   const navigate = useNavigate();
-  const location=useLocation()
+  const location = useLocation();
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border">
       <div className="flex items-stretch justify-around px-1 pt-1 pb-2">

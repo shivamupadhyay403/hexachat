@@ -1,20 +1,23 @@
 // pages/Post.jsx
-// Create post form — textarea, image upload zone, tags, submit
-
 import { useState, useRef } from "react";
-import { ImagePlus, X, Tag } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import Avatar from "../ui/Avatar";
+import { ImagePlus, X, Tag, Loader2 } from "lucide-react";
+import { Button }                      from "@/components/ui/button";
+import { Card, CardContent }           from "@/components/ui/card";
+import { Textarea }                    from "@/components/ui/textarea";
+import Avatar                          from "../ui/Avatar";
+import api                             from "@/assets/api";
 
 const SUGGESTED_TAGS = ["#design", "#code", "#lifestyle", "#travel", "#tech", "#photo"];
 
-export default function Post({ currentUser = { name: "Arjun Kumar" } }) {
-  const [content, setContent] = useState("");
+export default function Post({ currentUser = { name: "Arjun Kumar" }, onPostCreated }) {
+  const [content,      setContent]      = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
-  const [dragOver, setDragOver] = useState(false);
-  const [preview, setPreview] = useState(null);
+  const [dragOver,     setDragOver]     = useState(false);
+  const [preview,      setPreview]      = useState(null);   // blob URL for preview
+  const [imageFile,    setImageFile]    = useState(null);   // actual File
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState(null);
+  const [success,      setSuccess]      = useState(false);
   const fileRef = useRef();
 
   const toggleTag = (tag) =>
@@ -24,14 +27,48 @@ export default function Post({ currentUser = { name: "Arjun Kumar" } }) {
 
   const handleFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
-    const url = URL.createObjectURL(file);
-    setPreview(url);
+    setImageFile(file);
+    setPreview(URL.createObjectURL(file));
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
     handleFile(e.dataTransfer.files[0]);
+  };
+
+  const clearForm = () => {
+    setContent("");
+    setPreview(null);
+    setImageFile(null);
+    setSelectedTags([]);
+    setError(null);
+  };
+
+  const handleSubmit = async () => {
+    if (!content.trim() && !imageFile) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("content", content.trim());
+      formData.append("tags",    JSON.stringify(selectedTags));
+      if (imageFile) formData.append("image", imageFile);
+
+      const { data } = await api.post("/posts", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setSuccess(true);
+      clearForm();
+      setTimeout(() => setSuccess(false), 3000);
+      onPostCreated?.(data.data); // bubble up to feed if needed
+    } catch (err) {
+      setError(err.response?.data?.message ?? "Failed to publish post");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const charLimit = 280;
@@ -41,6 +78,7 @@ export default function Post({ currentUser = { name: "Arjun Kumar" } }) {
     <div className="max-w-xl mx-auto py-4 space-y-4">
       <Card className="rounded-2xl border border-border shadow-none">
         <CardContent className="p-5 space-y-4">
+
           {/* Author row */}
           <div className="flex items-center gap-3">
             <Avatar name={currentUser.name} size="md" />
@@ -50,34 +88,44 @@ export default function Post({ currentUser = { name: "Arjun Kumar" } }) {
             </div>
           </div>
 
-          {/* Text area */}
+          {/* Success banner */}
+          {success && (
+            <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-4 py-2.5 text-sm text-emerald-700 dark:text-emerald-400">
+              ✅ Post published successfully!
+            </div>
+          )}
+
+          {/* Error banner */}
+          {error && (
+            <div className="rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 px-4 py-2.5 text-sm text-rose-600 dark:text-rose-400">
+              ⚠️ {error}
+            </div>
+          )}
+
+          {/* Textarea */}
           <div className="relative">
             <Textarea
               placeholder="What's on your mind?"
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, charLimit))}
               className="resize-none min-h-[100px] rounded-xl text-sm pr-10"
+              disabled={loading}
             />
-            <span
-              className={`absolute bottom-3 right-3 text-xs font-medium ${
-                remaining <= 20 ? "text-rose-500" : "text-muted-foreground"
-              }`}
-            >
+            <span className={`absolute bottom-3 right-3 text-xs font-medium ${
+              remaining <= 20 ? "text-rose-500" : "text-muted-foreground"
+            }`}>
               {remaining}
             </span>
           </div>
 
-          {/* Image upload zone */}
+          {/* Image upload zone / preview */}
           {preview ? (
             <div className="relative rounded-xl overflow-hidden">
-              <img
-                src={preview}
-                alt="Preview"
-                className="w-full h-52 object-cover"
-              />
+              <img src={preview} alt="Preview" className="w-full h-52 object-cover" />
               <button
                 className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition"
-                onClick={() => setPreview(null)}
+                onClick={() => { setPreview(null); setImageFile(null); }}
+                disabled={loading}
               >
                 <X size={14} />
               </button>
@@ -94,14 +142,9 @@ export default function Post({ currentUser = { name: "Arjun Kumar" } }) {
                   : "border-border hover:border-violet-300 hover:bg-accent"
               }`}
             >
-              <ImagePlus
-                size={22}
-                className="text-muted-foreground"
-                strokeWidth={1.5}
-              />
+              <ImagePlus size={22} className="text-muted-foreground" strokeWidth={1.5} />
               <p className="text-xs text-muted-foreground">
-                Drag & drop or{" "}
-                <span className="text-violet-600 font-medium">browse</span>
+                Drag & drop or <span className="text-violet-600 font-medium">browse</span>
               </p>
               <p className="text-[10px] text-muted-foreground">PNG, JPG up to 10MB</p>
               <input
@@ -125,6 +168,7 @@ export default function Post({ currentUser = { name: "Arjun Kumar" } }) {
                 <button
                   key={tag}
                   onClick={() => toggleTag(tag)}
+                  disabled={loading}
                   className={`text-xs px-3 py-1 rounded-full border transition-all ${
                     selectedTags.includes(tag)
                       ? "bg-violet-600 text-white border-violet-600"
@@ -137,22 +181,29 @@ export default function Post({ currentUser = { name: "Arjun Kumar" } }) {
             </div>
           </div>
 
-          {/* Submit */}
+          {/* Actions */}
           <div className="flex items-center gap-3 pt-1">
             <Button
               className="flex-1 bg-violet-600 hover:bg-violet-700 text-white rounded-xl"
-              disabled={!content.trim()}
+              disabled={(!content.trim() && !imageFile) || loading}
+              onClick={handleSubmit}
             >
-              Publish Post
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin" /> Publishing…
+                </span>
+              ) : "Publish Post"}
             </Button>
-            <Button variant="outline" className="rounded-xl" onClick={() => {
-              setContent("");
-              setPreview(null);
-              setSelectedTags([]);
-            }}>
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={clearForm}
+              disabled={loading}
+            >
               Clear
             </Button>
           </div>
+
         </CardContent>
       </Card>
     </div>
